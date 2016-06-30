@@ -97,7 +97,8 @@ func resourceCloudStackPrivateGatewayCreate(d *schema.ResourceData, meta interfa
 
 	d.SetId(r.Id)
 
-	return resourceCloudStackPrivateGatewayRead(d, meta) }
+	return resourceCloudStackPrivateGatewayRead(d, meta)
+}
 
 func resourceCloudStackPrivateGatewayRead(d *schema.ResourceData, meta interface{}) error {
 	cs := meta.(*cloudstack.CloudStackClient)
@@ -143,7 +144,8 @@ func resourceCloudStackPrivateGatewayUpdate(d *schema.ResourceData, meta interfa
 		}
 	}
 
-	return resourceCloudStackNetworkRead(d, meta) }
+	return resourceCloudStackNetworkRead(d, meta)
+}
 
 func resourceCloudStackPrivateGatewayDelete(d *schema.ResourceData, meta interface{}) error {
 	cs := meta.(*cloudstack.CloudStackClient)
@@ -165,4 +167,3 @@ func resourceCloudStackPrivateGatewayDelete(d *schema.ResourceData, meta interfa
 	}
 	return nil
 }
-
