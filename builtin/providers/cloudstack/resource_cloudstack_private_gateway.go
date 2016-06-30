@@ -3,8 +3,6 @@ package cloudstack
 import (
 	"fmt"
 	"log"
-	"net"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -22,21 +20,18 @@ func resourceCloudStackPrivateGateway() *schema.Resource {
 			"gateway": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				Computed: true,
 				ForceNew: true,
 			},
 
 			"ip_address": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				Computed: true,
 				ForceNew: true,
 			},
 
 			"netmask": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
-				Computed: true,
 				ForceNew: true,
 			},
 
@@ -48,36 +43,21 @@ func resourceCloudStackPrivateGateway() *schema.Resource {
 
 			"vpc_id": &schema.Schema{
 				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Required: true,
 				ForceNew: true,
 			},
 
 			"acl_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: false,
+				Computed: true,
 			},
 
 			"network_offering": &schema.Schema{
 				Type:     schema.TypeString,
-				Optional: true,
+				Required: true,
 				ForceNew: true,
 			},
-
-
-			"physical_network_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-			},
-
-			"source_nat_supported": &schema.Schema{
-				Type:     schema.TypeBool,
-				Optional: true,
-				ForceNew: true,
-			},
-
 		},
 	}
 }
@@ -93,7 +73,7 @@ func resourceCloudStackPrivateGatewayCreate(d *schema.ResourceData, meta interfa
 		ipaddress,
 		d.Get("netmask").(string),
 		d.Get("vlan").(string),
-		d.Get("vpc_id").(string)
+		d.Get("vpc_id").(string),
 	)
 
 	// Retrieve the network_offering ID
@@ -103,49 +83,30 @@ func resourceCloudStackPrivateGatewayCreate(d *schema.ResourceData, meta interfa
 	}
 	p.SetNetworkofferingid(networkofferingid)
 
-	// Since we're in a VPC, check if we want to assiciate an ACL list
-	aclid, ok := d.GetOk("acl_id")
-	if ok {
+	// Check if we want to associate an ACL
+	if aclid, ok := d.GetOk("acl_id"); ok {
 		// Set the acl ID
 		p.SetAclid(aclid.(string))
 	}
 
-	// Check if the phyical_network ID is given
-	physicalnetworkid, ok := d.GetOk("physical_network_id")
-	if ok {
-		// Set the phyical_network ID
-		p.SetPhysicalnetworkid(physicalnetworkid.(string))
-	}
-
-	// Check if the sourcenatsupported is set
-	sourcenatsupported, ok := d.GetOk("source_nat_supported")
-	if ok {
-		// Set sourcenatsupported
-		p.SetSourcenatsupported(sourcenatsupported.(bool))
-	}
-
-	// Create the new network
+	// Create the new private gateway
 	r, err := cs.VPC.CreatePrivateGateway(p)
 	if err != nil {
-		return fmt.Errorf("Error creating private gateway %s: %s", ipaddress, err)
+		return fmt.Errorf("Error creating private gateway for %s: %s", ipaddress, err)
 	}
 
 	d.SetId(r.Id)
 
-	return resourceCloudStackPrivateGatewayRead(d, meta)
-}
+	return resourceCloudStackPrivateGatewayRead(d, meta) }
 
 func resourceCloudStackPrivateGatewayRead(d *schema.ResourceData, meta interface{}) error {
 	cs := meta.(*cloudstack.CloudStackClient)
 
-	// Get the virtual machine details
-	n, count, err := cs.VPC.GetPrivateGatewayByID(
-		d.Id()
-	)
+	// Get the private gateway details
+	gw, count, err := cs.VPC.GetPrivateGatewayByID(d.Id())
 	if err != nil {
 		if count == 0 {
-			log.Printf(
-				"[DEBUG] PrivateGateway %s does no longer exist", d.Get("ipaddress").(string))
+			log.Printf("[DEBUG] Private gateway for %s does no longer exist", d.Get("ipaddress").(string))
 			d.SetId("")
 			return nil
 		}
@@ -153,15 +114,12 @@ func resourceCloudStackPrivateGatewayRead(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	d.Set("gateway", n.Gateway)
-	d.Set("ipaddress", n.Ipaddress)
-	d.Set("netmask", n.Netmask)
-	d.Set("gateway", n.Gateway)
-	d.Set("vpc_id", n.Vpcid)
-	d.Set("acl_id", n.Aclid)
-	setValueOrID(d, "network_offering", n.Networkofferingname, n.Networkofferingid)
-	d.Set("physical_network_id", n.Physicalnetworkid)
-	d.Set("source_nat_supported", n.Sourcenatsupported)
+	d.Set("gateway", gw.Gateway)
+	d.Set("ipaddress", gw.Ipaddress)
+	d.Set("netmask", gw.Netmask)
+	d.Set("vlan", gw.Vlan)
+	d.Set("vpc_id", gw.Vpcid)
+	d.Set("acl_id", gw.Aclid)
 
 	return nil
 }
@@ -185,8 +143,7 @@ func resourceCloudStackPrivateGatewayUpdate(d *schema.ResourceData, meta interfa
 		}
 	}
 
-	return resourceCloudStackNetworkRead(d, meta)
-}
+	return resourceCloudStackNetworkRead(d, meta) }
 
 func resourceCloudStackPrivateGatewayDelete(d *schema.ResourceData, meta interface{}) error {
 	cs := meta.(*cloudstack.CloudStackClient)
@@ -194,7 +151,7 @@ func resourceCloudStackPrivateGatewayDelete(d *schema.ResourceData, meta interfa
 	// Create a new parameter struct
 	p := cs.VPC.NewDeletePrivateGatewayParams(d.Id())
 
-	// Delete the network
+	// Delete the private gateway
 	_, err := cs.VPC.DeletePrivateGateway(p)
 	if err != nil {
 		// This is a very poor way to be told the ID does no longer exist :(
@@ -204,7 +161,8 @@ func resourceCloudStackPrivateGatewayDelete(d *schema.ResourceData, meta interfa
 			return nil
 		}
 
-		return fmt.Errorf("Error deleting private gateway %s: %s", d.Get("ipaddress").(string), err)
+		return fmt.Errorf("Error deleting private gateway for %s: %s", d.Get("ipaddress").(string), err)
 	}
 	return nil
 }
+
