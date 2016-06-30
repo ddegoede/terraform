@@ -9,78 +9,47 @@ import (
 	"github.com/xanzy/go-cloudstack/cloudstack"
 )
 
-func TestAccCloudStackNetwork_basic(t *testing.T) {
-	var network cloudstack.VPC
+func TestAccCloudStackPrivateGateway_basic(t *testing.T) {
+	var ipaddr cloudstack.PublicIpAddress
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckCloudStackNetworkDestroy,
+		CheckDestroy: testAccCheckCloudStackIPAddressDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccCloudStackNetwork_basic,
+				Config: testAccCloudStackIPAddress_basic,
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckCloudStackNetworkExists(
-						"cloudstack_network.foo", &network),
-					testAccCheckCloudStackNetworkBasicAttributes(&network),
-					testAccCheckNetworkTags(&network, "terraform-tag", "true"),
+					testAccCheckCloudStackIPAddressExists(
+						"cloudstack_.foo", &ipaddr),
+					testAccCheckCloudStackIPAddressAttributes(&ipaddr),
 				),
 			},
 		},
 	})
 }
 
-func TestAccCloudStackNetwork_vpc(t *testing.T) {
-	var network cloudstack.Network
+func TestAccCloudStackIPAddress_vpc(t *testing.T) {
+	var ipaddr cloudstack.PublicIpAddress
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckCloudStackNetworkDestroy,
+		CheckDestroy: testAccCheckCloudStackIPAddressDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccCloudStackNetwork_vpc,
+				Config: testAccCloudStackIPAddress_vpc,
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckCloudStackNetworkExists(
-						"cloudstack_network.foo", &network),
-					testAccCheckCloudStackNetworkVPCAttributes(&network),
+					testAccCheckCloudStackIPAddressExists(
+						"cloudstack_ipaddress.foo", &ipaddr),
 				),
 			},
 		},
 	})
 }
 
-func TestAccCloudStackPrivateGateway_updateACL(t *testing.T) {
-	var vpc cloudstack.VPC
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckCloudStackPrivateGatewayDestroy,
-		Steps: []resource.TestStep{
-			resource.TestStep{
-				Config: testAccCloudStackNetwork_acl,
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckCloudStackNetworkExists(
-						"cloudstack_private_gateway.foo", &vpc),
-					testAccCheckCloudStackNetworkVPCAttributes(&network),
-				),
-			},
-
-			resource.TestStep{
-				Config: testAccCloudStackNetwork_updateACL,
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckCloudStackNetworkExists(
-						"cloudstack_network.foo", &network),
-					testAccCheckCloudStackNetworkVPCAttributes(&network),
-				),
-			},
-		},
-	})
-}
-
-func testAccCheckCloudStackNetworkExists(
-	n string, network *cloudstack.Network) resource.TestCheckFunc {
+func testAccCheckCloudStackIPAddressExists(
+	n string, ipaddr *cloudstack.PublicIpAddress) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[n]
 		if !ok {
@@ -88,180 +57,75 @@ func testAccCheckCloudStackNetworkExists(
 		}
 
 		if rs.Primary.ID == "" {
-			return fmt.Errorf("No network ID is set")
+			return fmt.Errorf("No IP address ID is set")
 		}
 
 		cs := testAccProvider.Meta().(*cloudstack.CloudStackClient)
-		ntwrk, _, err := cs.Network.GetNetworkByID(rs.Primary.ID)
+		pip, _, err := cs.Address.GetPublicIpAddressByID(rs.Primary.ID)
 
 		if err != nil {
 			return err
 		}
 
-		if ntwrk.Id != rs.Primary.ID {
-			return fmt.Errorf("Network not found")
+		if pip.Id != rs.Primary.ID {
+			return fmt.Errorf("IP address not found")
 		}
 
-		*network = *ntwrk
+		*ipaddr = *pip
 
 		return nil
 	}
 }
 
-func testAccCheckCloudStackNetworkBasicAttributes(
-	network *cloudstack.Network) resource.TestCheckFunc {
+func testAccCheckCloudStackIPAddressAttributes(
+	ipaddr *cloudstack.PublicIpAddress) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		if network.Name != "terraform-network" {
-			return fmt.Errorf("Bad name: %s", network.Name)
-		}
-
-		if network.Displaytext != "terraform-network" {
-			return fmt.Errorf("Bad display name: %s", network.Displaytext)
-		}
-
-		if network.Cidr != CLOUDSTACK_NETWORK_2_CIDR {
-			return fmt.Errorf("Bad CIDR: %s", network.Cidr)
-		}
-
-		if network.Networkofferingname != CLOUDSTACK_NETWORK_2_OFFERING {
-			return fmt.Errorf("Bad network offering: %s", network.Networkofferingname)
+		if ipaddr.Associatednetworkid != CLOUDSTACK_NETWORK_1 {
+			return fmt.Errorf("Bad network ID: %s", ipaddr.Associatednetworkid)
 		}
 
 		return nil
 	}
 }
 
-func testAccCheckCloudStackNetworkVPCAttributes(
-	network *cloudstack.Network) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		if network.Name != "terraform-network" {
-			return fmt.Errorf("Bad name: %s", network.Name)
-		}
-
-		if network.Displaytext != "terraform-network" {
-			return fmt.Errorf("Bad display name: %s", network.Displaytext)
-		}
-
-		if network.Cidr != CLOUDSTACK_VPC_NETWORK_CIDR {
-			return fmt.Errorf("Bad CIDR: %s", network.Cidr)
-		}
-
-		if network.Networkofferingname != CLOUDSTACK_VPC_NETWORK_OFFERING {
-			return fmt.Errorf("Bad network offering: %s", network.Networkofferingname)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckCloudStackNetworkDestroy(s *terraform.State) error {
+func testAccCheckCloudStackIPAddressDestroy(s *terraform.State) error {
 	cs := testAccProvider.Meta().(*cloudstack.CloudStackClient)
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "cloudstack_network" {
+		if rs.Type != "cloudstack_ipaddress" {
 			continue
 		}
 
 		if rs.Primary.ID == "" {
-			return fmt.Errorf("No network ID is set")
+			return fmt.Errorf("No IP address ID is set")
 		}
 
-		_, _, err := cs.Network.GetNetworkByID(rs.Primary.ID)
-		if err == nil {
-			return fmt.Errorf("Network %s still exists", rs.Primary.ID)
+		ip, _, err := cs.Address.GetPublicIpAddressByID(rs.Primary.ID)
+		if err == nil && ip.Associatednetworkid != "" {
+			return fmt.Errorf("Public IP %s still associated", rs.Primary.ID)
 		}
 	}
 
 	return nil
 }
 
-var testAccCloudStackNetwork_basic = fmt.Sprintf(`
-resource "cloudstack_network" "foo" {
-	name = "terraform-network"
-	cidr = "%s"
-	network_offering = "%s"
-	zone = "%s"
-	tags = {
-		terraform-tag = "true"
-	}
+var testAccCloudStackIPAddress_basic = fmt.Sprintf(`
+resource "cloudstack_ipaddress" "foo" {
+  network_id = "%s"
+}`, CLOUDSTACK_NETWORK_1)
+
+var testAccCloudStackIPAddress_vpc = fmt.Sprintf(`
+resource "cloudstack_vpc" "foobar" {
+  name = "terraform-vpc"
+  cidr = "%s"
+  vpc_offering = "%s"
+  zone = "%s"
+}
+
+resource "cloudstack_ipaddress" "foo" {
+  vpc_id = "${cloudstack_vpc.foobar.id}"
 }`,
-	CLOUDSTACK_NETWORK_2_CIDR,
-	CLOUDSTACK_NETWORK_2_OFFERING,
+	CLOUDSTACK_VPC_CIDR_1,
+	CLOUDSTACK_VPC_OFFERING,
 	CLOUDSTACK_ZONE)
-
-var testAccCloudStackNetwork_vpc = fmt.Sprintf(`
-resource "cloudstack_vpc" "foobar" {
-	name = "terraform-vpc"
-	cidr = "%s"
-	vpc_offering = "%s"
-	zone = "%s"
-}
-
-resource "cloudstack_network" "foo" {
-	name = "terraform-network"
-	cidr = "%s"
-	network_offering = "%s"
-	vpc_id = "${cloudstack_vpc.foobar.id}"
-	zone = "${cloudstack_vpc.foobar.zone}"
-}`,
-	CLOUDSTACK_VPC_CIDR_1,
-	CLOUDSTACK_VPC_OFFERING,
-	CLOUDSTACK_ZONE,
-	CLOUDSTACK_VPC_NETWORK_CIDR,
-	CLOUDSTACK_VPC_NETWORK_OFFERING)
-
-var testAccCloudStackNetwork_acl = fmt.Sprintf(`
-resource "cloudstack_vpc" "foobar" {
-	name = "terraform-vpc"
-	cidr = "%s"
-	vpc_offering = "%s"
-	zone = "%s"
-}
-
-resource "cloudstack_network_acl" "foo" {
-	name = "foo"
-	vpc_id = "${cloudstack_vpc.foobar.id}"
-}
-
-resource "cloudstack_network" "foo" {
-	name = "terraform-network"
-	cidr = "%s"
-	network_offering = "%s"
-	vpc_id = "${cloudstack_vpc.foobar.id}"
-	acl_id = "${cloudstack_network_acl.foo.id}"
-	zone = "${cloudstack_vpc.foobar.zone}"
-}`,
-	CLOUDSTACK_VPC_CIDR_1,
-	CLOUDSTACK_VPC_OFFERING,
-	CLOUDSTACK_ZONE,
-	CLOUDSTACK_VPC_NETWORK_CIDR,
-	CLOUDSTACK_VPC_NETWORK_OFFERING)
-
-var testAccCloudStackNetwork_updateACL = fmt.Sprintf(`
-resource "cloudstack_vpc" "foobar" {
-	name = "terraform-vpc"
-	cidr = "%s"
-	vpc_offering = "%s"
-	zone = "%s"
-}
-
-resource "cloudstack_network_acl" "bar" {
-	name = "bar"
-	vpc_id = "${cloudstack_vpc.foobar.id}"
-}
-
-resource "cloudstack_network" "foo" {
-	name = "terraform-network"
-	cidr = "%s"
-	network_offering = "%s"
-	vpc_id = "${cloudstack_vpc.foobar.id}"
-	acl_id = "${cloudstack_network_acl.bar.id}"
-	zone = "${cloudstack_vpc.foobar.zone}"
-}`,
-	CLOUDSTACK_VPC_CIDR_1,
-	CLOUDSTACK_VPC_OFFERING,
-	CLOUDSTACK_ZONE,
-	CLOUDSTACK_VPC_NETWORK_CIDR,
-	CLOUDSTACK_VPC_NETWORK_OFFERING)
