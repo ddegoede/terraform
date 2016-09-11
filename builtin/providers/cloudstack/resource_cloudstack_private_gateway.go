@@ -10,6 +10,24 @@ import (
 )
 
 func resourceCloudStackPrivateGateway() *schema.Resource {
+	aclidSchema := &schema.Schema{
+		Type:     schema.TypeString,
+		Optional: true,
+		Default:  none,
+	}
+
+	aclidSchema.StateFunc = func(v interface{}) string {
+		value := v.(string)
+
+		if value == none {
+			aclidSchema.ForceNew = true
+		} else {
+			aclidSchema.ForceNew = false
+		}
+
+		return value
+	}
+
 	return &schema.Resource{
 		Create: resourceCloudStackPrivateGatewayCreate,
 		Read:   resourceCloudStackPrivateGatewayRead,
@@ -36,24 +54,26 @@ func resourceCloudStackPrivateGateway() *schema.Resource {
 			},
 
 			"vlan": &schema.Schema{
-				Type:     schema.TypeInt,
-				Required: true,
-				ForceNew: true,
-			},
-
-			"vpc_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
 
-			"acl_id": &schema.Schema{
+			"physical_network_id": &schema.Schema{,
 				Type:     schema.TypeString,
 				Optional: true,
-				Computed: true,
+				ForceNew: true,
 			},
 
 			"network_offering": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+
+			"acl_id": aclidSchema,
+
+			"vpc_id": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
@@ -66,6 +86,7 @@ func resourceCloudStackPrivateGatewayCreate(d *schema.ResourceData, meta interfa
 	cs := meta.(*cloudstack.CloudStackClient)
 
 	ipaddress := d.Get("ip_address").(string)
+	networkofferingid := d.Get("network_offering").(string)
 
 	// Create a new parameter struct
 	p := cs.VPC.NewCreatePrivateGatewayParams(
@@ -77,11 +98,13 @@ func resourceCloudStackPrivateGatewayCreate(d *schema.ResourceData, meta interfa
 	)
 
 	// Retrieve the network_offering ID
-	networkofferingid, e := retrieveID(cs, "network_offering", d.Get("network_offering").(string))
-	if e != nil {
-		return e.Error()
+	if networkofferingid != "" {
+		networkofferingid, e := retrieveID(cs, "network_offering", networkofferingid)
+		if e != nil {
+			return e.Error()
+		}
+		p.SetNetworkofferingid(networkofferingid)
 	}
-	p.SetNetworkofferingid(networkofferingid)
 
 	// Check if we want to associate an ACL
 	if aclid, ok := d.GetOk("acl_id"); ok {
@@ -107,7 +130,7 @@ func resourceCloudStackPrivateGatewayRead(d *schema.ResourceData, meta interface
 	gw, count, err := cs.VPC.GetPrivateGatewayByID(d.Id())
 	if err != nil {
 		if count == 0 {
-			log.Printf("[DEBUG] Private gateway for %s does no longer exist", d.Get("ipaddress").(string))
+			log.Printf("[DEBUG] Private gateway for %s does no longer exist", d.Get("ip_address").(string))
 			d.SetId("")
 			return nil
 		}
@@ -116,7 +139,7 @@ func resourceCloudStackPrivateGatewayRead(d *schema.ResourceData, meta interface
 	}
 
 	d.Set("gateway", gw.Gateway)
-	d.Set("ipaddress", gw.Ipaddress)
+	d.Set("ip_address", gw.Ipaddress)
 	d.Set("netmask", gw.Netmask)
 	d.Set("vlan", gw.Vlan)
 	d.Set("vpc_id", gw.Vpcid)
@@ -130,13 +153,8 @@ func resourceCloudStackPrivateGatewayUpdate(d *schema.ResourceData, meta interfa
 
 	// Replace the ACL if the ID has changed
 	if d.HasChange("acl_id") {
-		aclid, ok := d.GetOk("acl_id")
-		if !ok {
-			return fmt.Errorf("Replacing the ACL requires a valid ACL ID")
-		}
-
-		p := cs.NetworkACL.NewReplaceNetworkACLListParams(aclid.(string))
-		p.SetGatewayid(d.Id())
+		p := cs.NetworkACL.NewReplaceNetworkACLListParams(d.Get("acl_id").(string))
+		p.SetNetworkid(d.Id())
 
 		_, err := cs.NetworkACL.ReplaceNetworkACLList(p)
 		if err != nil {

@@ -60,6 +60,12 @@ func testAccPreCheck(t *testing.T) {
 	if v := os.Getenv("CLOUDSTACK_SECRET_KEY"); v == "" {
 		t.Fatal("CLOUDSTACK_SECRET_KEY must be set for acceptance tests")
 	}
+	if v := os.Getenv("CLOUDSTACK_API_KEY_ROOT"); v == "" {
+		t.Fatal("CLOUDSTACK_API_KEY_ROOT must be set for acceptance tests")
+	}
+	if v := os.Getenv("CLOUDSTACK_SECRET_KEY_ROOT"); v == "" {
+		t.Fatal("CLOUDSTACK_SECRET_KEY_ROOT must be set for acceptance tests")
+	}
 	if v := os.Getenv("CLOUDSTACK_2ND_NIC_IPADDRESS"); v == "" {
 		t.Fatal("CLOUDSTACK_2ND_NIC_IPADDRESS must be set for acceptance tests")
 	}
@@ -153,8 +159,8 @@ func testAccPreCheck(t *testing.T) {
 	if v := os.Getenv("CLOUDSTACK_PRIVGW_NETMASK"); v == "" {
 		t.Fatal("CLOUDSTACK_PRIVGW_NETMASK must be set for acceptance tests")
 	}
-	if v := os.Getenv("CLOUDSTACK_PRIVGW_NETWORK_OFFERING"); v == "" {
-		t.Fatal("CLOUDSTACK_PRIVGW_NETWORK_OFFERING must be set for acceptance tests")
+	if v := os.Getenv("CLOUDSTACK_PRIVGW_VLAN"); v == "" {
+		t.Fatal("CLOUDSTACK_PRIVGW_VLAN must be set for acceptance tests")
 	}
 }
 
@@ -236,8 +242,12 @@ var CLOUDSTACK_PROJECT_NETWORK = os.Getenv("CLOUDSTACK_PROJECT_NETWORK")
 // Name of a zone that exists already
 var CLOUDSTACK_ZONE = os.Getenv("CLOUDSTACK_ZONE")
 
-// Details of the private gateway that will be added to VPC
+// Details of the private gateway that will be added to VPC, the ROOT keys are required
+// since the private gateway can only be created by a root domain account
+var CLOUDSTACK_API_URL = os.Getenv("CLOUDSTACK_API_URL")
+var CLOUDSTACK_API_KEY_ROOT = os.Getenv("CLOUDSTACK_API_KEY_ROOT")
+var CLOUDSTACK_SECRET_KEY_ROOT = os.Getenv("CLOUDSTACK_SECRET_KEY_ROOT")
 var CLOUDSTACK_PRIVGW_GATEWAY = os.Getenv("CLOUDSTACK_PRIVGW_GATEWAY")
 var CLOUDSTACK_PRIVGW_IPADDRESS = os.Getenv("CLOUDSTACK_PRIVGW_IPADDRESS")
 var CLOUDSTACK_PRIVGW_NETMASK = os.Getenv("CLOUDSTACK_PRIVGW_NETMASK")
-var CLOUDSTACK_PRIVGW_NETWORK_OFFERING = os.Getenv("CLOUDSTACK_PRIVGW_NETWORK_OFFERING")
+var CLOUDSTACK_PRIVGW_VLAN = os.Getenv("CLOUDSTACK_PRIVGW_VLAN")

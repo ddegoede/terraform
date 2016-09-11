@@ -29,25 +29,6 @@ func TestAccCloudStackPrivateGateway_basic(t *testing.T) {
 	})
 }
 
-//func TestAccCloudStackIPAddress_vpc(t *testing.T) {
-//	var ipaddr cloudstack.PublicIpAddress
-//
-//	resource.Test(t, resource.TestCase{
-//		PreCheck:     func() { testAccPreCheck(t) },
-//		Providers:    testAccProviders,
-//		CheckDestroy: testAccCheckCloudStackIPAddressDestroy,
-//		Steps: []resource.TestStep{
-//			resource.TestStep{
-//				Config: testAccCloudStackIPAddress_vpc,
-//				Check: resource.ComposeTestCheckFunc(
-//					testAccCheckCloudStackIPAddressExists(
-//						"cloudstack_ipaddress.foo", &ipaddr),
-//				),
-//			},
-//		},
-//	})
-//}
-
 func testAccCheckCloudStackPrivateGatewayExists(
 	n string, gateway *cloudstack.PrivateGateway) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
@@ -61,7 +42,7 @@ func testAccCheckCloudStackPrivateGatewayExists(
 		}
 
 		cs := testAccProvider.Meta().(*cloudstack.CloudStackClient)
-		pip, _, err := cs.Address.GetPrivateGatewayByID(rs.Primary.ID)
+		pip, _, err := cs.VPC.GetPrivateGatewayByID(rs.Primary.ID)
 
 		if err != nil {
 			return err
@@ -81,8 +62,16 @@ func testAccCheckCloudStackPrivateGatewayAttributes(
 	gateway *cloudstack.PrivateGateway) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		if gateway.Vpcid != CLOUDSTACK_VPC_1 {
-			return fmt.Errorf("Bad VPC ID: %s", gateway.Vpcid)
+		if gateway.Gateway != CLOUDSTACK_PRIVGW_GATEWAY {
+			return fmt.Errorf("Bad Gateway: %s", gateway.Gateway)
+		}
+
+		if gateway.Ipaddress != CLOUDSTACK_PRIVGW_IPADDRESS {
+			return fmt.Errorf("Bad Gateway: %s", gateway.Ipaddress)
+		}
+
+		if gateway.Netmask != CLOUDSTACK_PRIVGW_NETMASK {
+			return fmt.Errorf("Bad Gateway: %s", gateway.Netmask)
 		}
 
 		return nil
@@ -101,8 +90,8 @@ func testAccCheckCloudStackPrivateGatewayDestroy(s *terraform.State) error {
 			return fmt.Errorf("No private gateway ID is set")
 		}
 
-		gateway, _, err := cs.Address.GetPrivateGatewayByID(rs.Primary.ID)
-		if err == nil && gateway.id != "" {
+		gateway, _, err := cs.VPC.GetPrivateGatewayByID(rs.Primary.ID)
+		if err == nil && gateway.Id != "" {
 			return fmt.Errorf("Private gateway %s still exists", rs.Primary.ID)
 		}
 	}
@@ -118,17 +107,28 @@ resource "cloudstack_vpc" "foobar" {
   zone = "%s"
 }
 
-resource "cloudstack_gateway" "foo" {
-	gateway = "%s"
-	ipaddress = "%s"
-	netmask - "%s"
-	network_offering = "%s"
+provider "cloudstack" {
+  alias = "root_domain"
+  api_url = "%s"
+  api_key = "%s"
+  secret_key = "%s"
+}
+
+resource "cloudstack_private_gateway" "foo" {
+  provider = "cloudstack.root_domain"
+  gateway = "%s"
+  ip_address = "%s"
+  netmask = "%s"
+  vlan = "%s"
   vpc_id = "${cloudstack_vpc.foobar.id}"
 }`,
 	CLOUDSTACK_VPC_CIDR_1,
 	CLOUDSTACK_VPC_OFFERING,
 	CLOUDSTACK_ZONE,
+	CLOUDSTACK_API_URL,
+	CLOUDSTACK_API_KEY_ROOT,
+	CLOUDSTACK_SECRET_KEY_ROOT,
 	CLOUDSTACK_PRIVGW_GATEWAY,
 	CLOUDSTACK_PRIVGW_IPADDRESS,
 	CLOUDSTACK_PRIVGW_NETMASK,
-	CLOUDSTACK_PRIVGW_NETWORK_OFFERING)
+	CLOUDSTACK_PRIVGW_VLAN)
