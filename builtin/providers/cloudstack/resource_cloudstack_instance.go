@@ -73,6 +73,12 @@ func resourceCloudStackInstance() *schema.Resource {
 				ForceNew: true,
 			},
 
+			"root_disk_size": &schema.Schema{
+				Type:     schema.TypeInt,
+				Optional: true,
+				ForceNew: true,
+			},
+
 			"project": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
@@ -161,6 +167,11 @@ func resourceCloudStackInstanceCreate(d *schema.ResourceData, meta interface{}) 
 		p.SetDisplayname(displayname.(string))
 	} else if hasName {
 		p.SetDisplayname(name.(string))
+	}
+
+	// If there is a root_disk_size supplied, add it to the parameter struct
+	if rootdisksize, ok := d.GetOk("root_disk_size"); ok {
+		p.SetRootdisksize(int64(rootdisksize.(int)))
 	}
 
 	if zone.Networktype == "Advanced" {
